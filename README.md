@@ -73,6 +73,46 @@ sshd
 netstat -tulnp | grep 8022
 ```
 
+### 免密登录（SSH 密钥认证，可选）
+> 在**电脑**上操作，手机端无需改动；配置后 `ssh mate9` 直接进 shell，不再输密码
+
+1. 生成 Mate9 专用密钥（`-N ""` 表示不设口令）
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_mate9 -C "mac-to-mate9" -N ""
+```
+
+2. 把公钥装到手机（只需输一次密码，用户名换成 `whoami` 的结果）
+```bash
+ssh-copy-id -i ~/.ssh/id_ed25519_mate9.pub -p 8022 u0_a26@192.168.31.234
+```
+> 看到 `Number of key(s) added: 1` 即成功。没有 `ssh-copy-id` 时用：
+```bash
+ssh -p 8022 u0_a26@192.168.31.234 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys" < ~/.ssh/id_ed25519_mate9.pub
+```
+
+3. 追加 SSH 别名，之后直接 `ssh mate9`
+```bash
+cat >> ~/.ssh/config <<'EOF'
+
+Host mate9
+    HostName 192.168.31.234
+    Port 8022
+    User u0_a26
+    IdentityFile ~/.ssh/id_ed25519_mate9
+    IdentitiesOnly yes
+EOF
+```
+
+验证
+```bash
+ssh mate9
+```
+
+故障排查：如果仍然提示要密码，说明手机端权限不对，在 Termux 里执行
+```bash
+chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys
+```
+
 ## 五、项目目录准备
 ```bash
 # node项目目录
