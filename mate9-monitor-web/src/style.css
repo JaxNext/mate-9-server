@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+html {
+  /* 避免 iOS 横屏时自动放大字号 */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  /* 移动端下拉刷新会误触整页滚动，限制到容器内 */
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  background-color: #f1f5f9;
+}

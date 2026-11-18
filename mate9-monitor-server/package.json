@@ -1,0 +1,11 @@
+{
+  "name": "mate9-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Mate9 状态采集与 SSE 推送服务（Termux 上运行）",
+  "scripts": {
+    "start": "node index.mjs",
+    "deploy": "sh deploy.sh"
+  }
+}

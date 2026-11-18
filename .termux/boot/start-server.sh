@@ -13,7 +13,7 @@ echo "PM2 已恢复Node服务" >> $LOG_FILE
 
 # 启动Caddy（先清残留，防止端口占用）
 pkill caddy
-nohup caddy file-server --listen :8080 --root $HOME/caddy-web >> $LOG_FILE 2>&1 &
+nohup caddy run --config $HOME/Caddyfile >> $LOG_FILE 2>&1 &
 echo "Caddy 服务已启动，PID: $!" >> $LOG_FILE
 
 echo "全部服务启动完成" >> $LOG_FILE

@@ -117,10 +117,10 @@ chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys
 ```bash
 # node项目目录
 mkdir -p ~/web
-# caddy静态网页目录
-mkdir -p ~/caddy-web
+# caddy静态网页目录（mate9-monitor-web 构建产物）
+mkdir -p ~/mate9-monitor-web
 ```
-> 把你的node项目放到`~/web`，静态文件放到`~/caddy-web`
+> 把你的node项目放到`~/web`，静态文件放到`~/mate9-monitor-web`
 > 进入web目录，启动node服务并交给pm2托管
 ```bash
 cd ~/web
@@ -165,7 +165,7 @@ echo "PM2 已恢复Node服务" >> $LOG_FILE
 
 # 启动Caddy静态服务，先杀掉残留进程防止端口占用
 pkill caddy
-nohup caddy file-server --listen :8080 --root $HOME/caddy-web >> $LOG_FILE 2>&1 &
+nohup caddy run --config $HOME/Caddyfile >> $LOG_FILE 2>&1 &
 echo "Caddy 服务已启动，PID: $!" >> $LOG_FILE
 
 echo "全部服务启动完成" >> $LOG_FILE
@@ -185,6 +185,23 @@ chmod +x ~/.termux/boot/start-server.sh
 ```bash
 tail -f ~/server.log
 ```
+
+### Mac 侧部署脚本
+> 前置：Mac 上已配好 `mate9` 免密登录别名
+
+| 脚本 | 作用 |
+|---|---|
+| `./deploy-caddy.sh` | 上传根目录 `Caddyfile` → `caddy validate` 校验 → 平滑 `caddy reload`（未运行则拉起）→ 自测首页与 `/api/status` |
+| `mate9-monitor-server/deploy.sh` | 上传采集服务到 `~/mate9-monitor-server`，pm2 启动/重启后 `pm2 save` |
+| `mate9-monitor-web/deploy.sh` | 构建前端，`rsync --delete` 同步到 `~/mate9-monitor-web` |
+
+```bash
+./deploy-caddy.sh
+cd mate9-monitor-server && ./deploy.sh
+cd mate9-monitor-web && ./deploy.sh
+```
+
+目标机器可用环境变量覆盖：`MATE9_HOST`（默认 `mate9`）。
 
 ## 七、一键停止脚本（停止所有服务、释放唤醒锁）
 ```bash

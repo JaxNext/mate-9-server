@@ -1,0 +1,9 @@
+:8080 {
+	handle /api/* {
+		reverse_proxy 127.0.0.1:3100
+	}
+	handle {
+		root * {$HOME}/mate9-monitor-web
+		file_server
+	}
+}
