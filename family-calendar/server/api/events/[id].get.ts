@@ -1,6 +1,7 @@
 import { useDb } from '../../utils/db'
 import type { MemberRow } from '../../utils/members'
 import { toEventDto, type EventRow } from '../../utils/event-input'
+import { getEventTags } from '../../utils/tags'
 
 export default defineEventHandler((event) => {
   const id = Number(getRouterParam(event, 'id'))
@@ -26,5 +27,5 @@ export default defineEventHandler((event) => {
     )
     .all(id) as unknown as MemberRow[]
 
-  return toEventDto(row, members)
+  return toEventDto(row, members, getEventTags(db, id))
 })

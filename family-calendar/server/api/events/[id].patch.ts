@@ -1,6 +1,7 @@
 import { useDb } from '../../utils/db'
 import { requireMember } from '../../utils/auth'
 import { assertMembers, parseEventInput, rowToInput, setEventMembers, type EventRow } from '../../utils/event-input'
+import { assertTags, getEventTags, setEventTags } from '../../utils/tags'
 
 export default defineEventHandler(async (event) => {
   requireMember(event)
@@ -22,9 +23,12 @@ export default defineEventHandler(async (event) => {
     db.prepare('SELECT member_id FROM event_member WHERE event_id = ?').all(id) as Array<{ member_id: number }>
   ).map((item) => item.member_id)
 
+  const currentTagIds = getEventTags(db, id).map((tag) => tag.id)
+
   const body = (await readBody(event)) as Record<string, unknown> | null
-  const input = parseEventInput(body, rowToInput(row, currentMemberIds))
+  const input = parseEventInput(body, rowToInput(row, currentMemberIds, currentTagIds))
   assertMembers(db, input.memberIds)
+  assertTags(db, input.tagIds)
 
   db.prepare(
     `UPDATE event
@@ -44,6 +48,7 @@ export default defineEventHandler(async (event) => {
   )
 
   setEventMembers(db, id, input.memberIds)
+  setEventTags(db, id, input.tagIds)
 
   return { id, ...input }
 })

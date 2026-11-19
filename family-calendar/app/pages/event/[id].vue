@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import type { EventDetail, Member } from '~/types'
+import type { EventDetail, Member, Tag } from '~/types'
 
 const REPEAT_OPTIONS = [
   { value: 'none', label: '不重复' },
@@ -19,9 +19,11 @@ const rawId = computed(() => String(route.params.id ?? 'new'))
 const isNew = computed(() => rawId.value === 'new')
 
 const members = ref<Member[]>([])
+const tags = ref<Tag[]>([])
 const loading = ref(!isNew.value)
 const saving = ref(false)
 const error = ref('')
+const newTagName = ref('')
 
 const form = reactive({
   title: '',
@@ -32,6 +34,7 @@ const form = reactive({
   allDay: true,
   startTime: '09:00',
   memberIds: identityId.value ? [identityId.value] : ([] as number[]),
+  tagIds: [] as number[],
   repeat: 'none',
   endDate: '',
   note: '',
@@ -39,12 +42,17 @@ const form = reactive({
 
 onMounted(async () => {
   if (!identityId.value) {
-    router.replace({ path: '/', query: { login: '1' } })
+    router.replace({ path: '/settings', query: { login: '1' } })
     loading.value = false
     return
   }
 
-  members.value = await $fetch<Member[]>('/api/members').catch(() => [])
+  const [memberList, tagList] = await Promise.all([
+    $fetch<Member[]>('/api/members').catch(() => []),
+    $fetch<Tag[]>('/api/tags').catch(() => []),
+  ])
+  members.value = memberList
+  tags.value = tagList
 
   if (isNew.value) return
   try {
@@ -54,6 +62,7 @@ onMounted(async () => {
     form.allDay = detail.allDay
     form.startTime = detail.startTime ?? '09:00'
     form.memberIds = detail.members.map((member) => member.id)
+    form.tagIds = detail.tags.map((tag) => tag.id)
     form.repeat = detail.freq === 'weekly' && detail.interval === 2 ? 'biweekly' : detail.freq
     form.endDate = detail.endDate ?? ''
     form.note = detail.note ?? ''
@@ -74,6 +83,28 @@ function toggleMember(id: number) {
     : [...form.memberIds, id]
 }
 
+function isTagSelected(id: number) {
+  return form.tagIds.includes(id)
+}
+
+function toggleTag(id: number) {
+  form.tagIds = isTagSelected(id) ? form.tagIds.filter((item) => item !== id) : [...form.tagIds, id]
+}
+
+async function createTag() {
+  const name = newTagName.value.trim()
+  if (!name) return
+  error.value = ''
+  try {
+    const res = await api<{ tag: Tag }>('/api/tags', { method: 'POST', body: { name } })
+    if (!tags.value.some((tag) => tag.id === res.tag.id)) tags.value.push(res.tag)
+    if (!form.tagIds.includes(res.tag.id)) form.tagIds.push(res.tag.id)
+    newTagName.value = ''
+  } catch (err: any) {
+    error.value = err?.data?.statusMessage || err?.statusMessage || '标签创建失败'
+  }
+}
+
 function buildPayload() {
   const repeat = form.repeat
   const freq = repeat === 'biweekly' ? 'weekly' : repeat
@@ -83,6 +114,7 @@ function buildPayload() {
     allDay: form.allDay,
     startTime: form.allDay ? null : form.startTime,
     memberIds: form.memberIds,
+    tagIds: form.tagIds,
     freq,
     interval: repeat === 'biweekly' ? 2 : 1,
     endDate: repeat === 'none' ? null : form.endDate || null,
@@ -108,7 +140,7 @@ async function save() {
     } else {
       await api(`/api/events/${rawId.value}`, { method: 'PATCH', body: buildPayload() })
     }
-    router.replace({ path: '/', query: { d: form.startDate } })
+    router.replace({ path: '/calendar', query: { d: form.startDate } })
   } catch (err: any) {
     error.value = err?.data?.statusMessage || err?.statusMessage || '保存失败'
   } finally {
@@ -121,7 +153,7 @@ async function remove() {
   saving.value = true
   try {
     await api(`/api/events/${rawId.value}`, { method: 'DELETE' })
-    router.replace('/')
+    router.replace('/list')
   } catch (err: any) {
     error.value = err?.data?.statusMessage || err?.statusMessage || '删除失败'
     saving.value = false
@@ -213,6 +245,42 @@ function goBack() {
               @click="toggleMember(member.id)"
             >
               {{ member.name }}
+            </button>
+          </div>
+        </div>
+
+        <div class="p-4">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-slate-600">标签</span>
+            <span class="text-[11px] text-slate-400">可多选，可新建</span>
+          </div>
+          <div v-if="tags.length" class="mt-2 flex flex-wrap gap-2">
+            <button
+              v-for="tag in tags"
+              :key="tag.id"
+              type="button"
+              class="rounded-full px-3 py-1.5 text-xs font-medium transition"
+              :class="isTagSelected(tag.id) ? 'text-white' : 'bg-slate-100 text-slate-600'"
+              :style="isTagSelected(tag.id) ? { backgroundColor: tag.color } : {}"
+              @click="toggleTag(tag.id)"
+            >
+              {{ tag.name }}
+            </button>
+          </div>
+          <div class="mt-2 flex gap-2">
+            <input
+              v-model="newTagName"
+              maxlength="12"
+              placeholder="新建标签，如：家务"
+              class="min-w-0 flex-1 rounded-xl bg-slate-50 px-3 py-2 text-sm outline-none placeholder:text-slate-300"
+              @keyup.enter="createTag"
+            />
+            <button
+              type="button"
+              class="shrink-0 rounded-xl bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600 active:bg-slate-200"
+              @click="createTag"
+            >
+              添加
             </button>
           </div>
         </div>

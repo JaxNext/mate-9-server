@@ -4,6 +4,16 @@ export interface Member {
   color: string
 }
 
+export interface Tag {
+  id: number
+  name: string
+  color: string
+}
+
+export interface TagWithCount extends Tag {
+  count: number
+}
+
 export interface CalendarItem {
   eventId: number
   date: string
@@ -24,10 +34,26 @@ export interface EventDetail {
   title: string
   note: string | null
   members: Member[]
+  tags: Tag[]
   allDay: boolean
   startTime: string | null
   freq: CalendarItem['freq']
   interval: number
   startDate: string
   endDate: string | null
+}
+
+export interface EventListItem {
+  id: number
+  title: string
+  allDay: boolean
+  startTime: string | null
+  members: Member[]
+  tags: Tag[]
+  freq: CalendarItem['freq']
+  interval: number
+  startDate: string
+  endDate: string | null
+  nextDate: string | null
+  overdue: boolean
 }

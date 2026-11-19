@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { createError } from 'h3'
 import type { MemberRow } from './members'
+import type { TagRow } from './tags'
 
 export const FREQS = ['none', 'daily', 'weekly', 'monthly', 'yearly'] as const
 export type Freq = (typeof FREQS)[number]
@@ -9,6 +10,7 @@ export interface EventInput {
   title: string
   note: string | null
   memberIds: number[]
+  tagIds: number[]
   allDay: boolean
   startTime: string | null
   freq: Freq
@@ -70,6 +72,12 @@ export function parseEventInput(raw: Record<string, unknown> | null | undefined,
   if (memberIds.length > 10) fail('成员不能超过 10 个')
   if (memberIds.some((id) => !Number.isInteger(id))) fail('成员不正确')
 
+  const rawTags = pick<unknown>('tagIds', base?.tagIds ?? [])
+  if (!Array.isArray(rawTags)) fail('标签格式不正确')
+  const tagIds = [...new Set(rawTags.map((value) => Number(value)))]
+  if (tagIds.length > 10) fail('标签不能超过 10 个')
+  if (tagIds.some((id) => !Number.isInteger(id))) fail('标签不正确')
+
   const allDay = Boolean(pick('allDay', base?.allDay ?? true))
   let startTime = pick('startTime', base?.startTime ?? null)
   startTime = startTime ? String(startTime) : null
@@ -91,7 +99,7 @@ export function parseEventInput(raw: Record<string, unknown> | null | undefined,
   const noteValue = pick('note', base?.note ?? null)
   const note = noteValue ? String(noteValue).trim().slice(0, 500) || null : null
 
-  return { title, note, memberIds, allDay, startTime, freq, interval, startDate, endDate }
+  return { title, note, memberIds, tagIds, allDay, startTime, freq, interval, startDate, endDate }
 }
 
 export function assertMembers(db: DatabaseSync, memberIds: number[]) {
@@ -109,11 +117,12 @@ export function setEventMembers(db: DatabaseSync, eventId: number, memberIds: nu
   for (const memberId of memberIds) insert.run(eventId, memberId)
 }
 
-export function rowToInput(row: EventRow, memberIds: number[]): EventInput {
+export function rowToInput(row: EventRow, memberIds: number[], tagIds: number[] = []): EventInput {
   return {
     title: row.title,
     note: row.note,
     memberIds,
+    tagIds,
     allDay: !!row.all_day,
     startTime: row.start_time,
     freq: row.freq,
@@ -123,12 +132,13 @@ export function rowToInput(row: EventRow, memberIds: number[]): EventInput {
   }
 }
 
-export function toEventDto(row: EventRow, members: MemberRow[]) {
+export function toEventDto(row: EventRow, members: MemberRow[], tags: TagRow[] = []) {
   return {
     id: row.id,
     title: row.title,
     note: row.note,
     members: members.map((member) => ({ id: member.id, name: member.name, color: member.color })),
+    tags: tags.map((tag) => ({ id: tag.id, name: tag.name, color: tag.color })),
     allDay: !!row.all_day,
     startTime: row.start_time,
     freq: row.freq,

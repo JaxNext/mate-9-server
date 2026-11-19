@@ -1,6 +1,7 @@
 import { useDb } from '../../utils/db'
 import { requireMember } from '../../utils/auth'
 import { assertMembers, parseEventInput, setEventMembers } from '../../utils/event-input'
+import { assertTags, setEventTags } from '../../utils/tags'
 
 export default defineEventHandler(async (event) => {
   requireMember(event)
@@ -8,6 +9,7 @@ export default defineEventHandler(async (event) => {
   const db = useDb()
   const input = parseEventInput(await readBody(event))
   assertMembers(db, input.memberIds)
+  assertTags(db, input.tagIds)
 
   const info = db
     .prepare(
@@ -27,6 +29,7 @@ export default defineEventHandler(async (event) => {
 
   const id = Number(info.lastInsertRowid)
   setEventMembers(db, id, input.memberIds)
+  setEventTags(db, id, input.tagIds)
 
   setResponseStatus(event, 201)
   return { id }

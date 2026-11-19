@@ -42,9 +42,23 @@ CREATE TABLE IF NOT EXISTS occurrence_state (
   UNIQUE (event_id, date)
 );
 
+CREATE TABLE IF NOT EXISTS tag (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#6366f1',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS event_tag (
+  event_id INTEGER NOT NULL REFERENCES event(id) ON DELETE CASCADE,
+  tag_id INTEGER NOT NULL REFERENCES tag(id) ON DELETE CASCADE,
+  PRIMARY KEY (event_id, tag_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_event_start_date ON event(start_date);
 CREATE INDEX IF NOT EXISTS idx_state_event_date ON occurrence_state(event_id, date);
 CREATE INDEX IF NOT EXISTS idx_event_member_member ON event_member(member_id);
+CREATE INDEX IF NOT EXISTS idx_event_tag_tag ON event_tag(tag_id);
 `
 
 /**
@@ -53,29 +67,34 @@ CREATE INDEX IF NOT EXISTS idx_event_member_member ON event_member(member_id);
  */
 function migrate(db: DatabaseSync) {
   const version = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
-  if (version >= 1) return
 
-  const eventColumns = db.prepare('PRAGMA table_info(event)').all() as Array<{ name: string }>
-  if (eventColumns.some((column) => column.name === 'member_id')) {
-    db.exec(`
-      DELETE FROM member
-      WHERE name IN ('爸爸', '妈妈', '孩子')
-        AND NOT EXISTS (SELECT 1 FROM event WHERE event.member_id = member.id)
-    `)
-    db.exec(`
-      INSERT OR IGNORE INTO event_member (event_id, member_id)
-      SELECT id, member_id FROM event WHERE member_id IS NOT NULL
-    `)
+  if (version < 1) {
+    const eventColumns = db.prepare('PRAGMA table_info(event)').all() as Array<{ name: string }>
+    if (eventColumns.some((column) => column.name === 'member_id')) {
+      db.exec(`
+        DELETE FROM member
+        WHERE name IN ('爸爸', '妈妈', '孩子')
+          AND NOT EXISTS (SELECT 1 FROM event WHERE event.member_id = member.id)
+      `)
+      db.exec(`
+        INSERT OR IGNORE INTO event_member (event_id, member_id)
+        SELECT id, member_id FROM event WHERE member_id IS NOT NULL
+      `)
+    }
+
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_member_name ON member(name COLLATE NOCASE)')
+
+    const memberColumns = db.prepare('PRAGMA table_info(member)').all() as Array<{ name: string }>
+    if (memberColumns.some((column) => column.name === 'emoji')) {
+      db.exec('ALTER TABLE member DROP COLUMN emoji')
+    }
+
+    db.exec('PRAGMA user_version = 1')
   }
 
-  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_member_name ON member(name COLLATE NOCASE)')
-
-  const memberColumns = db.prepare('PRAGMA table_info(member)').all() as Array<{ name: string }>
-  if (memberColumns.some((column) => column.name === 'emoji')) {
-    db.exec('ALTER TABLE member DROP COLUMN emoji')
-  }
-
-  db.exec('PRAGMA user_version = 1')
+  // v2 只新增 tag / event_tag 两张表（由 SCHEMA 的 IF NOT EXISTS 建好），这里补唯一索引。
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_tag_name ON tag(name COLLATE NOCASE)')
+  if (version < 2) db.exec('PRAGMA user_version = 2')
 }
 
 export function useDb(): DatabaseSync {

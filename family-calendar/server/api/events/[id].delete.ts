@@ -15,7 +15,8 @@ export default defineEventHandler((event) => {
     throw createError({ statusCode: 404, statusMessage: '事项不存在' })
   }
 
-  // 外键级联在部分环境可能未生效，这里显式清理完成记录
+  // 外键级联在部分环境可能未生效，这里显式清理完成记录与标签关联
   db.prepare('DELETE FROM occurrence_state WHERE event_id = ?').run(id)
+  db.prepare('DELETE FROM event_tag WHERE event_id = ?').run(id)
   return { ok: true }
 })

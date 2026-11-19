@@ -20,6 +20,11 @@ export default defineEventHandler((event) => {
     throw createError({ statusCode: 400, statusMessage: '成员不正确' })
   }
 
+  const tagId = params.tag ? Number(params.tag) : null
+  if (tagId !== null && !Number.isInteger(tagId)) {
+    throw createError({ statusCode: 400, statusMessage: '标签不正确' })
+  }
+
   const db = useDb()
   const sqlParams: Array<string | number> = [to, from]
   let sql = `SELECT e.* FROM event e WHERE e.archived = 0 AND e.start_date <= ? AND (e.end_date IS NULL OR e.end_date >= ?)`
@@ -30,6 +35,10 @@ export default defineEventHandler((event) => {
         OR EXISTS (SELECT 1 FROM event_member em WHERE em.event_id = e.id AND em.member_id = ?)
       )`
     sqlParams.push(memberId)
+  }
+  if (tagId !== null) {
+    sql += ' AND EXISTS (SELECT 1 FROM event_tag et WHERE et.event_id = e.id AND et.tag_id = ?)'
+    sqlParams.push(tagId)
   }
   const rows = db.prepare(sql).all(...sqlParams) as unknown as EventRow[]
 
